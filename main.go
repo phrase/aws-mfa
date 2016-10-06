@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,6 +26,13 @@ func run() error {
 	ae, err := awsEnv(cfg)
 	if err != nil {
 		return err
+	}
+	flag.Parse()
+	if flag.Arg(0) == "env" {
+		for _, e := range ae {
+			fmt.Println("export " + e)
+		}
+		return nil
 	}
 	args := []string{}
 	if len(os.Args) > 1 {
