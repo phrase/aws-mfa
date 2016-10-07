@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -55,9 +54,9 @@ func isExecutableNotFound(err error) bool {
 	return strings.Contains(err.Error(), "executable file not found")
 }
 
-type Keys map[string]int
+type Keys map[string]string
 
-func (k Keys) Lookup(key string) (int, bool) {
+func (k Keys) Lookup(key string) (string, bool) {
 	v, ok := k[key]
 	return v, ok
 }
@@ -70,11 +69,7 @@ func parseOutput(in []byte) Keys {
 			continue
 		}
 		name := strings.Join(fields[0:len(fields)-1], " ")
-		value, err := strconv.Atoi(fields[len(fields)-1])
-		if err != nil {
-			continue
-		}
-		m[name] = value
+		m[name] = fields[len(fields)-1]
 	}
 	return m
 }

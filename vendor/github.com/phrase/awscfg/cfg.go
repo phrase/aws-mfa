@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -101,7 +100,7 @@ func getSTSCredentials(cfg *config) (creds *sts.Credentials, err error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Fprintf(os.Stdout, "\nread token %d\n", token)
+	fmt.Fprintf(os.Stdout, "\nread token %q\n", token)
 	tokenRes, err := stsClient.GetSessionToken(&sts.GetSessionTokenInput{SerialNumber: d.SerialNumber, DurationSeconds: &d64, TokenCode: &token})
 	if err != nil {
 		return nil, err
@@ -159,7 +158,7 @@ func readFromYubikey(name string) func(context.Context, chan string) error {
 }
 
 func readMFAFromStream(in io.Reader, name string) func(context.Context, chan string) error {
-	return func(ctx context.Context, tokens chan int) error {
+	return func(ctx context.Context, tokens chan string) error {
 		scanner := bufio.NewScanner(in)
 		msg := "AWS MFA token"
 		if name != "" {
@@ -168,8 +167,8 @@ func readMFAFromStream(in io.Reader, name string) func(context.Context, chan str
 		msg += " please: "
 		fmt.Fprint(os.Stdout, msg)
 		for scanner.Scan() {
-			i, err := strconv.Atoi(strings.TrimSpace(scanner.Text()))
-			if err == nil && i >= 100000 && i <= 999999 {
+			i := strings.TrimSpace(scanner.Text())
+			if len(i) == 6 {
 				tokens <- i
 			}
 			fmt.Fprint(os.Stdout, msg)
