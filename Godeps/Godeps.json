@@ -128,11 +128,11 @@
 		},
 		{
 			"ImportPath": "github.com/phrase/awscfg",
-			"Rev": "402468639a1dacefd3bcfb649bc44de107c79b88"
+			"Rev": "2246b62203dba0e22213e26a967a2633bc7d52c1"
 		},
 		{
 			"ImportPath": "github.com/phrase/awscfg/metadata",
-			"Rev": "402468639a1dacefd3bcfb649bc44de107c79b88"
+			"Rev": "2246b62203dba0e22213e26a967a2633bc7d52c1"
 		},
 		{
 			"ImportPath": "github.com/phrase/yubiauth",

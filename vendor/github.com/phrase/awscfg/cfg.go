@@ -101,9 +101,8 @@ func getSTSCredentials(cfg *config) (creds *sts.Credentials, err error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Fprint(os.Stdout, "\nread token\n")
-	code := strconv.Itoa(token)
-	tokenRes, err := stsClient.GetSessionToken(&sts.GetSessionTokenInput{SerialNumber: d.SerialNumber, DurationSeconds: &d64, TokenCode: &code})
+	fmt.Fprintf(os.Stdout, "\nread token %d\n", token)
+	tokenRes, err := stsClient.GetSessionToken(&sts.GetSessionTokenInput{SerialNumber: d.SerialNumber, DurationSeconds: &d64, TokenCode: &token})
 	if err != nil {
 		return nil, err
 	}
@@ -117,11 +116,11 @@ func getSTSCredentials(cfg *config) (creds *sts.Credentials, err error) {
 
 var ReadTokenDeadline = 60 * time.Second
 
-func readToken(cfg *config) (int, error) {
+func readToken(cfg *config) (string, error) {
 	ctx, cf := context.WithDeadline(context.Background(), time.Now().Add(ReadTokenDeadline))
 	defer cf()
 
-	tok := make(chan int)
+	tok := make(chan string)
 	readers := []mfaReader{readMFAFromStream(os.Stdin, cfg.AWSAccountName)}
 	if cfg.AWSYubikey != "" {
 		readers = append(readers, readFromYubikey(cfg.AWSYubikey))
@@ -133,20 +132,20 @@ func readToken(cfg *config) (int, error) {
 		}(r)
 	}
 
-	var token int
+	var token string
 	select {
 	case token = <-tok:
 		break
 	case <-ctx.Done():
-		return 0, ctx.Err()
+		return "", ctx.Err()
 	}
 	return token, nil
 }
 
-type mfaReader func(context.Context, chan int) error
+type mfaReader func(context.Context, chan string) error
 
-func readFromYubikey(name string) func(context.Context, chan int) error {
-	return func(ctx context.Context, tokens chan int) error {
+func readFromYubikey(name string) func(context.Context, chan string) error {
+	return func(ctx context.Context, tokens chan string) error {
 		keys, err := yubiauth.WaitForKeys(ctx)
 		if err != nil {
 			return err
@@ -159,7 +158,7 @@ func readFromYubikey(name string) func(context.Context, chan int) error {
 	}
 }
 
-func readMFAFromStream(in io.Reader, name string) func(context.Context, chan int) error {
+func readMFAFromStream(in io.Reader, name string) func(context.Context, chan string) error {
 	return func(ctx context.Context, tokens chan int) error {
 		scanner := bufio.NewScanner(in)
 		msg := "AWS MFA token"
