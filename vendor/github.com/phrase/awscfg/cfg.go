@@ -100,7 +100,7 @@ func getSTSCredentials(cfg *config) (creds *sts.Credentials, err error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Fprintf(os.Stdout, "\nread token %q\n", token)
+	fmt.Fprintf(os.Stderr, "\n")
 	tokenRes, err := stsClient.GetSessionToken(&sts.GetSessionTokenInput{SerialNumber: d.SerialNumber, DurationSeconds: &d64, TokenCode: &token})
 	if err != nil {
 		return nil, err
@@ -165,13 +165,13 @@ func readMFAFromStream(in io.Reader, name string) func(context.Context, chan str
 			msg += fmt.Sprintf(" for account %s", name)
 		}
 		msg += " please: "
-		fmt.Fprint(os.Stdout, msg)
+		fmt.Fprint(os.Stderr, msg)
 		for scanner.Scan() {
 			i := strings.TrimSpace(scanner.Text())
 			if len(i) == 6 {
 				tokens <- i
 			}
-			fmt.Fprint(os.Stdout, msg)
+			fmt.Fprint(os.Stderr, msg)
 		}
 		return scanner.Err()
 	}
