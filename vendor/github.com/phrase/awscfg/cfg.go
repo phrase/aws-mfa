@@ -116,65 +116,43 @@ func getSTSCredentials(cfg *config) (creds *sts.Credentials, err error) {
 var ReadTokenDeadline = 60 * time.Second
 
 func readToken(cfg *config) (string, error) {
-	ctx, cf := context.WithDeadline(context.Background(), time.Now().Add(ReadTokenDeadline))
-	defer cf()
-
-	tok := make(chan string)
-	readers := []mfaReader{readMFAFromStream(os.Stdin, cfg.AWSAccountName)}
-	if cfg.AWSYubikey != "" {
-		readers = append(readers, readFromYubikey(cfg.AWSYubikey))
+	if k := cfg.AWSYubikey; k != "" {
+		timeout := 60 * time.Second
+		fmt.Fprintf(os.Stderr, "please insert your yubikey within %s", timeout)
+		ctx, cf := context.WithDeadline(context.Background(), time.Now().Add(timeout))
+		defer cf()
+		keys, err := yubiauth.WaitForKeys(ctx)
+		if err != nil {
+			if err != context.DeadlineExceeded {
+				log.Printf("err=%q", err)
+			} else {
+				io.WriteString(os.Stderr, "\n")
+			}
+		} else if v, ok := keys[k]; ok {
+			return v, nil
+		}
 	}
-
-	for _, r := range readers {
-		go func(r mfaReader) {
-			r(ctx, tok)
-		}(r)
-	}
-
-	var token string
-	select {
-	case token = <-tok:
-		break
-	case <-ctx.Done():
-		return "", ctx.Err()
-	}
-	return token, nil
+	return readMFAToken(cfg.AWSAccountName, os.Stdin)
 }
 
 type mfaReader func(context.Context, chan string) error
 
-func readFromYubikey(name string) func(context.Context, chan string) error {
-	return func(ctx context.Context, tokens chan string) error {
-		keys, err := yubiauth.WaitForKeys(ctx)
-		if err != nil {
-			return err
-		}
-		if v, ok := keys[name]; ok {
-			tokens <- v
-			return nil
-		}
-		return fmt.Errorf("no token found for name %q", name)
+func readMFAToken(name string, in io.Reader) (string, error) {
+	scanner := bufio.NewScanner(in)
+	msg := "AWS MFA token"
+	if name != "" {
+		msg += fmt.Sprintf(" for account %s", name)
 	}
-}
-
-func readMFAFromStream(in io.Reader, name string) func(context.Context, chan string) error {
-	return func(ctx context.Context, tokens chan string) error {
-		scanner := bufio.NewScanner(in)
-		msg := "AWS MFA token"
-		if name != "" {
-			msg += fmt.Sprintf(" for account %s", name)
+	msg += " please: "
+	fmt.Fprint(os.Stderr, msg)
+	for scanner.Scan() {
+		i := strings.TrimSpace(scanner.Text())
+		if len(i) == 6 {
+			return i, nil
 		}
-		msg += " please: "
 		fmt.Fprint(os.Stderr, msg)
-		for scanner.Scan() {
-			i := strings.TrimSpace(scanner.Text())
-			if len(i) == 6 {
-				tokens <- i
-			}
-			fmt.Fprint(os.Stderr, msg)
-		}
-		return scanner.Err()
 	}
+	return "", scanner.Err()
 }
 
 func storeCredentials(path string, i interface{}) error {
