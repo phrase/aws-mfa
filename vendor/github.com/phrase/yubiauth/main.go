@@ -24,6 +24,11 @@ func WaitForKeys(ctx context.Context) (Keys, error) {
 }
 
 func waitForKeysWithCommander(ctx context.Context, cmd Commander) (Keys, error) {
+	if keys, found, err := readYubioath(cmd); err != nil {
+		return nil, err
+	} else if found {
+		return keys, nil
+	}
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
 	for {
@@ -31,16 +36,25 @@ func waitForKeysWithCommander(ctx context.Context, cmd Commander) (Keys, error) 
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case _ = <-t.C:
-			b, err := cmd("yubioath")
+			keys, found, err := readYubioath(cmd)
 			if err != nil {
-				if bytes.Contains(b, msgYubiKeyNotFound) {
-					continue
-				}
-				return nil, fmt.Errorf("%s\n%s", b, err)
+				return nil, err
+			} else if found {
+				return keys, nil
 			}
-			return parseOutput(b), nil
 		}
 	}
+}
+
+func readYubioath(cmd Commander) (Keys, bool, error) {
+	b, err := cmd("yubioath")
+	if err != nil {
+		if bytes.Contains(b, msgYubiKeyNotFound) {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("%s\n%s", b, err)
+	}
+	return parseOutput(b), true, nil
 }
 
 var ErrTimeoutWaitingForKeys = fmt.Errorf("timeout waiting for keys")
