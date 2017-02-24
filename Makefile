@@ -4,7 +4,7 @@ PACKAGES = $(shell go list ./... | grep -v "/vendor")
 
 default: build
 
-all: vendor build test vet
+all: build test vet
 
 gen:
 	go generate ${PACKAGES}
