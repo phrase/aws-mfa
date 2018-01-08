@@ -57,6 +57,7 @@ func awsEnv(cfg *aws.Config) (out []string, err error) {
 	)
 	if cfg.Region != nil {
 		out = append(out, "AWS_DEFAULT_REGION="+*cfg.Region)
+		out = append(out, "AWS_REGION="+*cfg.Region)
 	}
 	if c.SessionToken != "" {
 		out = append(out, "AWS_SESSION_TOKEN="+c.SessionToken)
