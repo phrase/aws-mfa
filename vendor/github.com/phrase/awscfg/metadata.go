@@ -1,7 +1,6 @@
 package awscfg
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -43,10 +42,7 @@ func (m *metadataProvider) Retrieve() (v credentials.Value, err error) {
 		return v, err
 	}
 	m.cached = c
-	v = credentials.Value{AccessKeyID: c.AccessKeyId, SecretAccessKey: c.SecretAccessKey, SessionToken: c.Token}
-	b, _ := json.Marshal(v)
-	dbg.Printf("retrieving token %s", string(b))
-	return v, nil
+	return credentials.Value{AccessKeyID: c.AccessKeyId, SecretAccessKey: c.SecretAccessKey, SessionToken: c.Token}, nil
 }
 
 func (m *metadataProvider) IsExpired() bool {

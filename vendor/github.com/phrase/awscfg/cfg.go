@@ -2,6 +2,7 @@ package awscfg
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,7 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/phrase/yubiauth"
+	"github.com/phrase/yubioath"
 )
 
 func NewFromPath(path string) (*aws.Config, error) {
@@ -100,7 +102,6 @@ func getSTSCredentials(cfg *config) (creds *sts.Credentials, err error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Fprintf(os.Stderr, "\n")
 	tokenRes, err := stsClient.GetSessionToken(&sts.GetSessionTokenInput{SerialNumber: d.SerialNumber, DurationSeconds: &d64, TokenCode: &token})
 	if err != nil {
 		return nil, err
@@ -113,26 +114,71 @@ func getSTSCredentials(cfg *config) (creds *sts.Credentials, err error) {
 	return creds, nil
 }
 
-var ReadTokenDeadline = 60 * time.Second
+var insertMsg = "insert your yubikey please"
 
 func readToken(cfg *config) (string, error) {
 	if k := cfg.AWSYubikey; k != "" {
-		timeout := 60 * time.Second
-		fmt.Fprintf(os.Stderr, "please insert your yubikey within %s", timeout)
-		ctx, cf := context.WithDeadline(context.Background(), time.Now().Add(timeout))
+		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
-		keys, err := yubiauth.WaitForKeys(ctx)
-		if err != nil {
-			if err != context.DeadlineExceeded {
-				log.Printf("err=%q", err)
-			} else {
-				io.WriteString(os.Stderr, "\n")
-			}
-		} else if v, ok := keys[k]; ok {
-			return v, nil
+		if _, err := exec.LookPath("dmenu"); err == nil {
+			exec.CommandContext(ctx, "dmenu", "-p", insertMsg).Start()
+		}
+		key, ok, err := readKeyFromYubi(ctx, k)
+		if ok {
+			return key, nil
+		} else if err != nil {
+			log.Printf("error loading key from yubioath: %s", err)
 		}
 	}
 	return readMFAToken(cfg.AWSAccountName, os.Stdin)
+}
+
+func readKeyFromPinentry(ctx context.Context) (string, bool, error) {
+	c := exec.CommandContext(ctx, "pinentry")
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	c.Stdin = strings.NewReader("GETPIN\n")
+	c.Stdout = stdout
+	c.Stderr = stderr
+	err := c.Run()
+	if err != nil {
+		return "", false, fmt.Errorf("%s: %s", err, stderr)
+	}
+	for _, l := range strings.Split(stdout.String(), "\n") {
+		if strings.HasPrefix(l, "D ") {
+			return strings.TrimSpace(strings.TrimPrefix(l, "D ")), true, nil
+		}
+	}
+	return "", false, fmt.Errorf("unable to extract pin from %q", stdout.String())
+}
+
+func readKeyFromYubi(ctx context.Context, key string) (string, bool, error) {
+	keys, err := loadKeysFromYubi(ctx)
+	if err != nil {
+		return "", false, err
+	}
+	v, ok := keys[key]
+	return v, ok, nil
+}
+
+func loadKeysFromYubi(ctx context.Context) (yubiauth.Keys, error) {
+	keys, found, err := yubiauth.ReadYubioath()
+	if err != nil {
+		return nil, err
+	} else if found {
+		return keys, nil
+	}
+	fmt.Fprintf(os.Stderr, insertMsg)
+	keys, err = yubiauth.WaitForKeys(ctx)
+	if err != nil {
+		if err != context.DeadlineExceeded {
+			log.Printf("err=%q", err)
+		} else {
+			io.WriteString(os.Stderr, "\n")
+		}
+	}
+	fmt.Fprintf(os.Stderr, "\nloaded mfa tokens\n")
+	return keys, nil
 }
 
 type mfaReader func(context.Context, chan string) error
