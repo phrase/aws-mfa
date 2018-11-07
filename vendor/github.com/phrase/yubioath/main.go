@@ -52,19 +52,30 @@ func waitForKeysWithCommander(ctx context.Context, cmd Commander) (Keys, error) 
 
 func readYubioathWithCommander(cmd Commander) (Keys, bool, error) {
 	// TODO: try to make it also work using (and detecting) 'ykman oath code'
-	b, err := cmd("yubioath")
+	var b []byte
+	var err error
+	b, err = cmd("ykman", "oath", "code")
 	if err != nil {
-		if bytes.Contains(b, msgYubiKeyNotFound) {
+		if bytes.Contains(b, msgYkmanKeyNotFound) {
 			return nil, false, nil
 		}
-		return nil, false, fmt.Errorf("%s\n%s", b, err)
+		b, err = cmd("yubioath")
+		if err != nil {
+			if bytes.Contains(b, msgYubiKeyNotFound) {
+				return nil, false, nil
+			}
+			return nil, false, fmt.Errorf("looks like you neither have ykman nor yubioath installed:%s\n%s", b, err)
+		}
 	}
 	return parseOutput(b), true, nil
 }
 
 var ErrTimeoutWaitingForKeys = fmt.Errorf("timeout waiting for keys")
 
-var msgYubiKeyNotFound = []byte("No YubiKey found!")
+var (
+	msgYubiKeyNotFound  = []byte("No YubiKey found!")
+	msgYkmanKeyNotFound = []byte("No YubiKey detected!")
+)
 
 func isExecutableNotFound(err error) bool {
 	if err == nil {

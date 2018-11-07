@@ -59,11 +59,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6e38b1f89021ade91a93ce02c104703230ff1aa06560abf82ae6e85ef381404d"
+  digest = "1:8aa0e7e53ed0a40053f22aef53e56f3020ec5b35cf6138737eafd5692da74bd0"
   name = "github.com/phrase/yubioath"
   packages = ["."]
   pruneopts = "UT"
-  revision = "34b415d6b6f7fd78c6421990ab025b063056c3f2"
+  revision = "de4cff23725cce845900ea7e597b6b10b96b0cc5"
 
 [solve-meta]
   analyzer-name = "dep"
