@@ -7,5 +7,5 @@ require (
 	github.com/phrase/awscfg v0.0.0-20181107074734-741c0a4fbe68
 	github.com/phrase/yubioath v0.0.0-20181107085049-de4cff23725c // indirect
 	github.com/stretchr/testify v1.3.0 // indirect
-	golang.org/x/net v0.0.0-20190327214358-63eda1eb0650 // indirect
+	golang.org/x/net v0.7.0 // indirect
 )
